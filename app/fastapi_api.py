@@ -5,7 +5,7 @@ from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.storage.memory_repo import (
+from app.storage.mongo_repo import (
     list_items,
     get_item_by_id,
     add_item,
