@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from app.fastapi_api import router as api_router   # your /api routes
-from app.storage.memory_repo import list_items     # to get items for HTML pages
+from app.storage.mongo_repo import list_items      # <-- use MongoDB for HTML views
 
 app = FastAPI(
     title="Cafeteria API (FastAPI)",
@@ -37,7 +37,7 @@ app.add_middleware(
 
 # ----------------------------------
 # ROOT ROUTE
-# Redirect "/" -> "/api/items" (JSON)
+# Redirect "/" -> "/api/items" (JSON API)
 # ----------------------------------
 @app.get("/", include_in_schema=False)
 def root():
@@ -45,7 +45,7 @@ def root():
 
 
 # ----------------------------------
-# SIMPLE STATIC HTML PAGE
+# SIMPLE STATIC HTML PAGE (demo)
 # ----------------------------------
 @app.get("/hello-html", response_class=HTMLResponse)
 def hello_html():
@@ -66,10 +66,11 @@ def hello_html():
 
 # ----------------------------------
 # DYNAMIC HTML PAGE (template)
-# /items-html -> items + totals in an HTML table
+# /items-html -> items + totals in an HTML table (from MongoDB)
 # ----------------------------------
 @app.get("/items-html", response_class=HTMLResponse)
 def items_html(request: Request):
+    # Get items from MongoDB via mongo_repo
     items = [item.to_dict() for item in list_items()]
     total_items = len(items)
     available_items = sum(1 for item in items if item["available"])
@@ -86,6 +87,6 @@ def items_html(request: Request):
 
 
 # ----------------------------------
-# API ROUTES (/api/items etc.)
+# API ROUTES (/api/items, /api/orders, etc.)
 # ----------------------------------
 app.include_router(api_router)
