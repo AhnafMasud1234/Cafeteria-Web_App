@@ -8,11 +8,13 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Cell,
 } from "recharts";
 
 const API_BASE = "http://127.0.0.1:8000";
 const STATUSES = ["pending", "preparing", "ready", "completed", "cancelled"];
 const ADMIN_STORAGE_KEY = "cafeteria_admin_ok";
+const COLORS = ["#2563eb","#16a34a","#f59e0b","#ef4444","#a855f7","#06b6d4","#f97316","#64748b"];
 
 function StatusBadge({ status }) {
   const styles = {
@@ -23,17 +25,13 @@ function StatusBadge({ status }) {
     cancelled: "bg-rose-100 text-rose-800",
   };
   return (
-    <span
-      className={`px-2 py-1 rounded-full text-xs font-semibold ${
-        styles[status] || "bg-slate-100 text-slate-700"
-      }`}
-    >
+    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${styles[status] || "bg-slate-100 text-slate-700"}`}>
       {status}
     </span>
   );
 }
 
-function shortName(s, max = 10) {
+function shortName(s, max = 12) {
   if (!s) return "";
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
 }
@@ -46,6 +44,8 @@ export default function AdminPage() {
   const [items, setItems] = useState([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [itemsError, setItemsError] = useState("");
+  const [restockQty, setRestockQty] = useState({});
+  const [savingItemId, setSavingItemId] = useState(null);
 
   // Orders
   const [orders, setOrders] = useState([]);
@@ -58,10 +58,6 @@ export default function AdminPage() {
   const [topRated, setTopRated] = useState([]);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
   const [analyticsError, setAnalyticsError] = useState("");
-
-  // Restock
-  const [restockQty, setRestockQty] = useState({});
-  const [savingItemId, setSavingItemId] = useState(null);
 
   // Add item
   const [newItem, setNewItem] = useState({
@@ -114,9 +110,7 @@ export default function AdminPage() {
     setLoadingAnalytics(true);
     setAnalyticsError("");
     try {
-      const res1 = await fetch(
-        `${API_BASE}/api/admin/analytics/top-selling?limit=8`
-      );
+      const res1 = await fetch(`${API_BASE}/api/admin/analytics/top-selling?limit=8`);
       const topS = await res1.json();
       if (!res1.ok) throw new Error(topS?.detail || `HTTP ${res1.status}`);
       setTopSelling(topS);
@@ -170,8 +164,7 @@ export default function AdminPage() {
     setToast("");
     try {
       const qty = Number(restockQty[itemId]);
-      if (!Number.isFinite(qty) || qty < 0)
-        throw new Error("Quantity must be 0 or more");
+      if (!Number.isFinite(qty) || qty < 0) throw new Error("Quantity must be 0 or more");
 
       const res = await fetch(`${API_BASE}/api/items/${itemId}`, {
         method: "PUT",
@@ -181,6 +174,27 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
       setToast(`✅ Stock updated for item #${itemId}`);
+      await fetchItems();
+    } catch (e) {
+      setItemsError(String(e));
+    } finally {
+      setSavingItemId(null);
+    }
+  };
+
+  const saveImageUrl = async (itemId, url) => {
+    setSavingItemId(itemId);
+    setItemsError("");
+    setToast("");
+    try {
+      const res = await fetch(`${API_BASE}/api/items/${itemId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: url || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || `HTTP ${res.status}`);
+      setToast(`✅ Image updated for item #${itemId}`);
       await fetchItems();
     } catch (e) {
       setItemsError(String(e));
@@ -221,22 +235,13 @@ export default function AdminPage() {
     }
   };
 
-  // Chart data
   const sellingChartData = useMemo(
-    () =>
-      topSelling.map((x) => ({
-        name: shortName(x.name, 12),
-        units_sold: Number(x.units_sold || 0),
-      })),
+    () => topSelling.map((x) => ({ name: shortName(x.name, 12), units_sold: Number(x.units_sold || 0) })),
     [topSelling]
   );
 
   const ratedChartData = useMemo(
-    () =>
-      topRated.map((x) => ({
-        name: shortName(x.name, 12),
-        rating_avg: Number(x.rating_avg || 0),
-      })),
+    () => topRated.map((x) => ({ name: shortName(x.name, 12), rating_avg: Number(x.rating_avg || 0) })),
     [topRated]
   );
 
@@ -244,30 +249,24 @@ export default function AdminPage() {
     <div className="space-y-10">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-slate-900">Admin / Kitchen</h2>
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50"
-        >
+        <button onClick={logout} className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50">
           Logout
         </button>
       </div>
 
       {toast && <div className="bg-white border rounded-xl p-3">{toast}</div>}
+      {itemsError && <div className="bg-white border rounded-xl p-3 text-red-600">{itemsError}</div>}
+      {ordersError && <div className="bg-white border rounded-xl p-3 text-red-600">{ordersError}</div>}
+      {analyticsError && <div className="bg-white border rounded-xl p-3 text-red-600">{analyticsError}</div>}
 
       {/* Inventory */}
       <section className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xl font-bold">Inventory / Restock</h3>
-          <button
-            onClick={fetchItems}
-            className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50"
-          >
+          <button onClick={fetchItems} className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50">
             Refresh items
           </button>
         </div>
-        {itemsError && (
-          <div className="mb-3 rounded-lg border p-2 text-red-600">{itemsError}</div>
-        )}
 
         {loadingItems ? (
           <p>Loading items…</p>
@@ -279,17 +278,10 @@ export default function AdminPage() {
                   <div>
                     <div className="font-bold">
                       #{it.id} {it.name}{" "}
-                      <span className="text-sm text-slate-500 capitalize">
-                        ({it.category})
-                      </span>
+                      <span className="text-sm text-slate-500 capitalize">({it.category})</span>
                     </div>
                     <div className="text-sm text-slate-600">
-                      Price: <b>€{it.price}</b> • Stock: <b>{it.quantity}</b> •{" "}
-                      {it.available ? (
-                        <b className="text-emerald-700">Available</b>
-                      ) : (
-                        <b className="text-rose-700">Unavailable</b>
-                      )}
+                      Price: <b>€{it.price}</b> • Stock: <b>{it.quantity}</b>
                     </div>
                   </div>
 
@@ -299,9 +291,7 @@ export default function AdminPage() {
                       min="0"
                       className="w-28 border rounded-lg px-2 py-2"
                       value={restockQty[it.id] ?? it.quantity}
-                      onChange={(e) =>
-                        setRestockQty((p) => ({ ...p, [it.id]: e.target.value }))
-                      }
+                      onChange={(e) => setRestockQty((p) => ({ ...p, [it.id]: e.target.value }))}
                     />
                     <button
                       onClick={() => restockItem(it.id)}
@@ -310,6 +300,23 @@ export default function AdminPage() {
                     >
                       {savingItemId === it.id ? "Saving…" : "Update stock"}
                     </button>
+                  </div>
+                </div>
+
+                {/* Image URL editor + preview */}
+                <div className="mt-3 grid gap-2 md:grid-cols-3">
+                  <input
+                    className="border rounded-lg px-3 py-2 md:col-span-2"
+                    placeholder="Image URL (paste and click away to save)"
+                    defaultValue={it.image_url || ""}
+                    onBlur={(e) => saveImageUrl(it.id, e.target.value.trim())}
+                  />
+                  <div className="h-20 rounded-lg bg-slate-100 overflow-hidden flex items-center justify-center">
+                    {it.image_url ? (
+                      <img src={it.image_url} alt={it.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-slate-500">No image</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -322,39 +329,11 @@ export default function AdminPage() {
       <section className="bg-white rounded-xl shadow-sm p-4">
         <h3 className="text-xl font-bold mb-3">Add New Item</h3>
         <form onSubmit={addNewItem} className="grid gap-3 md:grid-cols-2">
-          <input
-            className="border rounded-lg px-3 py-2"
-            placeholder="Name"
-            value={newItem.name}
-            onChange={(e) => setNewItem((p) => ({ ...p, name: e.target.value }))}
-          />
-          <input
-            className="border rounded-lg px-3 py-2"
-            placeholder="Category"
-            value={newItem.category}
-            onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value }))}
-          />
-          <input
-            className="border rounded-lg px-3 py-2"
-            type="number"
-            step="0.01"
-            placeholder="Price"
-            value={newItem.price}
-            onChange={(e) => setNewItem((p) => ({ ...p, price: e.target.value }))}
-          />
-          <input
-            className="border rounded-lg px-3 py-2"
-            type="number"
-            placeholder="Quantity"
-            value={newItem.quantity}
-            onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))}
-          />
-          <input
-            className="border rounded-lg px-3 py-2 md:col-span-2"
-            placeholder="Image URL (optional)"
-            value={newItem.image_url}
-            onChange={(e) => setNewItem((p) => ({ ...p, image_url: e.target.value }))}
-          />
+          <input className="border rounded-lg px-3 py-2" placeholder="Name" value={newItem.name} onChange={(e) => setNewItem((p) => ({ ...p, name: e.target.value }))} />
+          <input className="border rounded-lg px-3 py-2" placeholder="Category" value={newItem.category} onChange={(e) => setNewItem((p) => ({ ...p, category: e.target.value }))} />
+          <input className="border rounded-lg px-3 py-2" type="number" step="0.01" placeholder="Price" value={newItem.price} onChange={(e) => setNewItem((p) => ({ ...p, price: e.target.value }))} />
+          <input className="border rounded-lg px-3 py-2" type="number" placeholder="Quantity" value={newItem.quantity} onChange={(e) => setNewItem((p) => ({ ...p, quantity: e.target.value }))} />
+          <input className="border rounded-lg px-3 py-2 md:col-span-2" placeholder="Image URL (optional)" value={newItem.image_url} onChange={(e) => setNewItem((p) => ({ ...p, image_url: e.target.value }))} />
           <button className="md:col-span-2 px-4 py-2 rounded-lg bg-slate-900 text-white font-semibold hover:bg-slate-800">
             Add item
           </button>
@@ -365,42 +344,23 @@ export default function AdminPage() {
       <section className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xl font-bold">Kitchen Orders</h3>
-          <button
-            onClick={fetchOrders}
-            className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50"
-          >
+          <button onClick={fetchOrders} className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50">
             Refresh orders
           </button>
         </div>
-        {ordersError && (
-          <div className="mb-3 rounded-lg border p-2 text-red-600">{ordersError}</div>
-        )}
 
         {loadingOrders ? (
           <p>Loading orders…</p>
         ) : (
           <div className="space-y-3">
-            {orders.slice(0, 20).map((o) => (
+            {orders.slice(0, 15).map((o) => (
               <div key={o.id} className="border rounded-xl p-3">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-bold">Order #{o.id}</div>
-                    <div className="text-sm text-slate-600">
-                      Total: <b>€{o.total_price}</b>
-                    </div>
+                    <div className="text-sm text-slate-600">Total: <b>€{o.total_price}</b></div>
                   </div>
                   <StatusBadge status={o.status} />
-                </div>
-
-                <div className="mt-2 text-sm text-slate-700">
-                  {o.items?.map((line) => (
-                    <div key={`${o.id}-${line.item_id}`} className="flex justify-between">
-                      <span>
-                        {line.name} × <b>{line.quantity}</b>
-                      </span>
-                      <span>€{Number(line.line_total).toFixed(2)}</span>
-                    </div>
-                  ))}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -421,21 +381,14 @@ export default function AdminPage() {
         )}
       </section>
 
-      {/* Analytics with charts */}
+      {/* Analytics charts */}
       <section className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xl font-bold">Analytics</h3>
-          <button
-            onClick={fetchAnalytics}
-            className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50"
-          >
+          <button onClick={fetchAnalytics} className="px-4 py-2 rounded-lg bg-white border font-semibold hover:bg-slate-50">
             Refresh analytics
           </button>
         </div>
-
-        {analyticsError && (
-          <div className="mb-3 rounded-lg border p-2 text-red-600">{analyticsError}</div>
-        )}
 
         {loadingAnalytics ? (
           <p>Loading analytics…</p>
@@ -450,7 +403,11 @@ export default function AdminPage() {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="units_sold" />
+                    <Bar dataKey="units_sold">
+                      {sellingChartData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -465,7 +422,11 @@ export default function AdminPage() {
                     <XAxis dataKey="name" />
                     <YAxis domain={[0, 5]} />
                     <Tooltip />
-                    <Bar dataKey="rating_avg" />
+                    <Bar dataKey="rating_avg">
+                      {ratedChartData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
