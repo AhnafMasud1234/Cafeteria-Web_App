@@ -330,6 +330,34 @@ This project is developed for educational purposes.
 
 ---
 
+
+🚀 Deployment
+
+The application is deployed using modern cloud platforms, with the backend and frontend hosted separately.
+
+🔧 Backend (FastAPI + MongoDB)
+	•	Platform: Railway
+	•	Status: Live
+	•	API Base URL:
+👉 https://cafeteria-webapp-production.up.railway.app
+	•	API Documentation:
+👉 https://cafeteria-webapp-production.up.railway.app/docs
+
+The backend connects to a managed MongoDB instance via environment variables and exposes RESTful APIs consumed by the frontend.
+
+
+
+🎨 Frontend (React + Vite)
+	•	Platform: Vercel
+	•	Status: Live
+	•	Application URL:
+👉 https://cafeteria-web-mg7fq356g-ahnafmasud1234s-projects.vercel.app
+
+The frontend is built with Vite and deployed as a static application, communicating securely with the FastAPI backend.
+
+⸻
+
+
 ## 📞 Contact & Support
 
 For questions, issues, or feature requests, please open an issue on the GitHub repository.
