@@ -18,7 +18,7 @@ import {
   AreaChart,
 } from "recharts";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE = import.meta.env.VITE_API_BASE || "http://127.0.0.1:8000";
 const ADMIN_KEY = "cafeteria123";
 const INACTIVITY_TIMEOUT = 60000; // 1 minute in milliseconds
 
