@@ -208,24 +208,7 @@ ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 
 ---
 
-## 🌐 Deployment
 
-### Recommended Deployment Stack
-
-- **Backend:** Render, Railway, or DigitalOcean
-- **Frontend:** Vercel or Netlify
-- **Database:** MongoDB Atlas (free tier available)
-
-### Deployment Checklist
-
-- [ ] Set up MongoDB Atlas cluster
-- [ ] Configure production environment variables
-- [ ] Update CORS origins for production URLs
-- [ ] Build and deploy backend
-- [ ] Build and deploy frontend
-- [ ] Test production deployment
-
----
 
 ## 🧪 Testing
 
@@ -351,7 +334,7 @@ This project is developed for educational purposes.
 
 For questions, issues, or feature requests, please open an issue on the GitHub repository.
 
----
 
-**Built with ❤️ using modern web technologies**
+
+
 
